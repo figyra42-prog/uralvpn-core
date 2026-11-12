@@ -1,20 +1,21 @@
 
 
 picks = {}
-for l in links:
-    u, q = parse(l)
-    t = q.get("type", "tcp")
-    kind = "reality" if (q.get("security") == "reality" and t == "tcp") else ("xhttp" if t == "xhttp" else None)
+for o in obs:
+    ob, net, sec, xs = convert(o)
+    kind = None
+    if sec == "reality" and net in ("tcp", "raw"):
+        kind = "reality"
+    elif net in ("xhttp", "splithttp"):
+        kind = "xhttp"
     if kind and kind not in picks:
-        name = up.unquote(l.split("#", 1)[1]) if "#" in l else "-"
-        picks[kind] = (u, q, name)
-for kind, (u, q, name) in picks.items():
-    cfg = {"log": {"level": "warn"},
-           "inbounds": [{"type": "mixed", "listen": "127.0.0.1", "listen_port": 10808}],
-           "outbounds": [outbound(u, q)]}
+        picks[kind] = (ob, net, sec, (xs or {}).get("mode", "-"), o.get("tag", "-"))
+for kind, (ob, net, sec, mode, tag) in picks.items():
+    cfg = {"log": {"level": "warn"}, "outbounds": [ob]}
+    cfg["inbounds"] = [{"type": "mixed", "listen": "127.0.0.1", "listen_port": 10808}]
     with open(f"e2e/{kind}.json", "w") as f:
         json.dump(cfg, f)
-    print(f"{kind}: [{name}] type={q.get('type', 'tcp')} security={q.get('security')} mode={q.get('mode', '-')} flow={q.get('flow', '-')} fp={q.get('fp', '-')}")
+    print(f"{kind}: tag={tag} net={net} sec={sec} mode={mode} flow={ob.get('flow', '-')}")
 for kind in ("reality", "xhttp"):
     if kind not in picks:
         print(f"{kind}: NOT FOUND in subscription")
