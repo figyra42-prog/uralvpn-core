@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-# UralVPN e2e step 1: fetch subscription, save vless links. Prints only counts and names.
+# UralVPN e2e step 1: fetch subscription as a real client (with HWID), save vless links.
 import base64, os, urllib.parse as up, urllib.request as ur
 
 sub = os.environ["SUB_URL"]
 print(f"::add-mask::{sub}", flush=True)
+HDR = {"x-hwid": "uralvpn-e2e-ci", "x-device-os": "Android", "x-ver-os": "14", "x-device-model": "uralvpn-e2e"}
 best = []
-for ua in ("v2rayNG/1.10.0", "Happ/3.5.0", "v2rayN/7.0"):
-    req = ur.Request(sub, headers={"User-Agent": ua})
+for ua in ("Happ/3.5.0", "v2rayNG/1.10.0"):
+    req = ur.Request(sub, headers={"User-Agent": ua, **HDR})
     with ur.urlopen(req, timeout=30) as r:
         raw = r.read().decode()
     try:
