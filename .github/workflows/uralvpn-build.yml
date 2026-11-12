@@ -1,0 +1,43 @@
+name: UralVPN core build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [uralvpn]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - { goos: linux, goarch: amd64 }
+          - { goos: android, goarch: arm64 }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0": local
+        run: |
+          TAGS=with_gvisor,with_quic,with_utls,with_grpc,badlinkname,tfogo_checklinkname0
+          go build -v -trimpath -ldflags "$(cat release/LDFLAGS) -s -w -buildid=" -tags "$TAGS" -o dist/sing-box ./cmd/sing-box
+          ls -la dist
+      - name: Version and features
+        if: matrix.goos == 'linux'
+        run: |
+          ./dist/sing-box version
+          echo "--- XHTTP / key_share in sources:"
+          grep -rlI --include=*.go -i xhttp . | head -5
+          grep -rnI --include=*.go key_share option/ | head -5
+      - uses: actions/upload-artifact@v5
+        with:
+          name: sing-box-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/sing-box
