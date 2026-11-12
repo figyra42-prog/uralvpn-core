@@ -9,6 +9,10 @@ func UralvpnMergeSubscription(singboxConfig string, xrayConfig string) (string, 
 	if err != nil {
 		return "", err
 	}
+	// Russian sites go directly, as in the Xray apps (rules come from the Xray subscription)
+	if withDirect, err := uralvpn.WithDirectRules(merged, xrayConfig); err == nil {
+		merged = withDirect
+	}
 	if withKeyShare, err := uralvpn.WithRealityKeyShare(merged); err == nil {
 		return withKeyShare, nil
 	}
