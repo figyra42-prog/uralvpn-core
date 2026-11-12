@@ -1,0 +1,29 @@
+name: UralVPN e2e
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  CGO_ENABLED: "0"
+  GOTOOLCHAIN: local
+  TAGS: with_gvisor,with_quic,with_utls,with_grpc,badlinkname,tfogo_checklinkname0
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Build linux-amd64
+        run: |
+          mkdir -p dist
+          go build -trimpath -ldflags "$(cat release/LDFLAGS) -s -w -buildid=" -tags "$TAGS" -o dist/sing-box-linux-amd64 ./cmd/sing-box
+      - name: Configs from subscription
+        env:
+          SUB_URL: ${{ secrets.SUB_URL }}
+        run: python3 .github/e2e/config.py
+      - name: Connect test
+        run: bash .github/e2e/run.sh
