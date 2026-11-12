@@ -20,7 +20,7 @@ jobs:
       - run: python3 .github/e2e/fetch.py
         env:
           SUB_URL: ${{ secrets.SUB_URL }}
-      - run: cd .github/e2e && cat cfg_a.py cfg_tls.py cfg_xmap.py cfg_xhttp.py cfg_convert.py cfg_c.py > ../../e2e/cfg.py && cd ../.. && python3 e2e/cfg.py
+      - run: cd .github/e2e && cat cfg_a.py cfg_tls.py cfg_xmap.py cfg_xmap2.py cfg_xmap3.py cfg_xhttp.py cfg_convert.py cfg_c.py > ../../e2e/cfg.py && cd ../.. && python3 e2e/cfg.py
       - run: bash .github/e2e/run.sh
       - if: always()
         run: bash .github/e2e/xray.sh

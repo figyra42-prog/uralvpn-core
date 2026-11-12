@@ -1,0 +1,5 @@
+XMAP["sessionPlacement"] = "session_placement"
+XMAP["sessionKey"] = "session_key"
+XMAP["seqPlacement"] = "seq_placement"
+XMAP["seqKey"] = "seq_key"
+XMAP["uplinkHTTPMethod"] = "uplink_http_method"
