@@ -78,13 +78,9 @@ func (d *DetourDialer) check(dialer adapter.Outbound) (N.Dialer, error) {
 		}
 		return nil, E.New("missing default outbound")
 	}
-	if !d.defaultOutbound && !d.disableEmptyDirectCheck {
-		if directDialer, isDirect := dialer.(DirectDialer); isDirect {
-			if directDialer.IsEmpty() {
-				return nil, E.New("detour to an empty direct outbound makes no sense")
-			}
-		}
-	}
+	// UralVPN: a detour to an empty direct outbound is accepted and behaves like a direct dial.
+	// Panel-generated sing-box configs (Remnawave) use `detour: direct` for DNS servers;
+	// upstream rejects it with "detour to an empty direct outbound makes no sense".
 	return dialer, nil
 }
 
