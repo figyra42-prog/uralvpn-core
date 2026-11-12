@@ -14,3 +14,8 @@ func UralvpnMergeSubscription(singboxConfig string, xrayConfig string) (string, 
 	}
 	return merged, nil
 }
+
+// UralvpnDescriptions returns JSON {"server": "description"} from the Xray subscription. //UralVPN
+func UralvpnDescriptions(xrayConfig string) (string, error) {
+	return uralvpn.Descriptions(xrayConfig)
+}
