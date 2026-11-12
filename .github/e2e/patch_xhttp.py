@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-# UralVPN: make the xhttp transport accept what current Xray-core accepts (the panel's CDN hosts).
+# UralVPN: patch the hiddify-based core so that it accepts and measures like Xray-core.
 # 1) transport/v2rayxhttp/client.go: scMaxEachPostBytes only has to be > 0 and the upload pipe
 #    limit is max(0, size - buf.Size), as in Xray-core splithttp/dialer.go. Panel hosts use
 #    1536-6144 (smaller than one 8 KiB buffer); the older check panicked and took the core down.
 # 2) option/v2ray_transport.go: allow seq in cookie/header/query while the session id is in the path.
 #    Xray-core has no such rule and ApplyMetaToRequest places both independently; 8 of 11 panel
 #    CDN hosts use this combination and were rejected as invalid.
+# 3) common/urltest/urltest.go: always measure like Xray's MeasureDelay: two requests over one
+#    connection, the faster one counts (the second skips the TCP/TLS handshake). The core already
+#    has this "unified delay" mode, but only when the context asks for it; nothing did.
 # Usage (from the core root): patch_xhttp.py transport/v2rayxhttp/client.go
 import os
 import sys
@@ -41,3 +44,23 @@ patch(os.path.join(root, "option", "v2ray_transport.go"), [
 \t\t\treturn E.New("SeqPlacement must be path when SessionPlacement is path")
 \t\t}""", """\tcase "cookie", "header", "query": //UralVPN: as Xray-core, seq may leave the path alone"""),
 ], "xhttp options")
+
+patch(os.path.join(root, "common", "urltest", "urltest.go"), [
+    ("\tif IsUnifiedDelayFromContext(ctx) {\n",
+     "\tif true { //UralVPN: always the unified delay (two requests, the faster counts), like Xray's MeasureDelay\n"),
+    ("""\t\tresp, err = client.Do(req.WithContext(ctx)) //H: a cancel did not stop the second request
+\t\tif err != nil {
+\t\t\treturn
+\t\t}
+\t\tresp.Body.Close()
+\t\tt = uint16(time.Since(second) / time.Millisecond) //to avid timeout in the second call""",
+     """\t\tresp, err = client.Do(req.WithContext(ctx)) //H: a cancel did not stop the second request
+\t\tif err != nil {
+\t\t\terr = nil //UralVPN: the first request worked, keep its delay
+\t\t\treturn
+\t\t}
+\t\tresp.Body.Close()
+\t\tif delay := uint16(time.Since(second) / time.Millisecond); delay < t {
+\t\t\tt = delay
+\t\t}"""),
+], "urltest")
