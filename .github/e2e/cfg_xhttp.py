@@ -7,9 +7,6 @@ def xhttp_part(ob, xs):
     for k, v in xs.items():
         if k != "extra":
             ex[k] = v
-    print("xhttp keys:", sorted(xs.keys()), flush=True)
-    print("extra keys:", sorted((xs.get("extra") or {}).keys()), flush=True)
-    print("xmux keys:", sorted((ex.get("xmux") or {}).keys()), flush=True)
     tr = {"type": "xhttp"}
     tr["mode"] = xs.get("mode") or "auto"
     tr["path"] = xs.get("path") or "/"
@@ -18,14 +15,20 @@ def xhttp_part(ob, xs):
     for k, sk in XMAP.items():
         if k in ex:
             tr[sk] = rng(ex[k])
+    for k, sk in INTS.items():
+        if k in ex:
+            tr[sk] = to_int(ex[k])
     hd = ex.get("headers") or {}
     hd = {k: v for k, v in hd.items() if k.lower() != "host"}
     if hd:
         tr["headers"] = hd
     mux = {}
     for k, v in (ex.get("xmux") or {}).items():
-        if k in MUXMAP:
+        if k == "hKeepAlivePeriod":
+            mux[MUXMAP[k]] = to_int(v)
+        elif k in MUXMAP:
             mux[MUXMAP[k]] = rng(v)
     if mux:
         tr["xmux"] = mux
+    print("sing-box xhttp keys:", sorted(tr.keys()), flush=True)
     ob["transport"] = tr
