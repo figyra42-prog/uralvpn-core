@@ -22,6 +22,9 @@ func Descriptions(xrayConfig string) (string, error) {
 	result := map[string]string{}
 	for _, xray := range xrayConfigs {
 		name := strings.TrimSpace(text(xray["remarks"]))
+		if len(list(object(xray["routing"])["balancers"])) > 0 {
+			name = TagAuto // the panel's autopilot entry is our autopilot
+		}
 		raw := text(object(xray["meta"])["serverDescription"])
 		if raw == "" {
 			raw = text(xray["serverDescription"])
