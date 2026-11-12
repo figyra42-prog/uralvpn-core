@@ -1,20 +1,17 @@
 name: UralVPN e2e
 on:
   workflow_dispatch:
+  push:
+    branches: [uralvpn]
+    paths:
+      - '.github/e2e/**'
+      - '.github/workflows/uralvpn-e2e.yml'
 permissions:
   contents: read
 env:
   CGO_ENABLED: "0"
   GOTOOLCHAIN: local
-  TAGS: with_gvisor,with_quic,with_utls,with_grpc,badlinkname,tfogo_checklinkname0
-jobs:
-  e2e:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          submodules: recursive
-      - uses: actions/setup-go@v6
+  TAGS: with_gvisor,with_quic,withses: actions/setup-go@v6
         with:
           go-version-file: go.mod
       - name: Build linux-amd64
