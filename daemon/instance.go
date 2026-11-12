@@ -195,9 +195,25 @@ func parseConfig(ctx context.Context, configContent string) (option.Options, err
 	return options, nil
 }
 
+// uralvpnForceLog keeps the core log on: panel-generated configs ship `log.disabled: true`,
+// which leaves the app's log screen empty. Level is info (debug/trace are too noisy on a phone),
+// output goes to the app (no file).
+func uralvpnForceLog(options *option.Options) {
+	if options.Log == nil {
+		options.Log = &option.LogOptions{}
+	}
+	options.Log.Disabled = false
+	options.Log.Output = ""
+	switch options.Log.Level {
+	case "", "debug", "trace":
+		options.Log.Level = "info"
+	}
+}
+
 // applyServiceOptions adds what the service adds to every config: the platform overrides of the
 // TUN inbound and the OOM killer. //H
 func (s *StartedService) applyServiceOptions(options *option.Options, overrideOptions *OverrideOptions) {
+	uralvpnForceLog(options)
 	if overrideOptions != nil {
 		for _, inbound := range options.Inbounds {
 			if tunInboundOptions, isTUN := inbound.Options.(*option.TunInboundOptions); isTUN {
