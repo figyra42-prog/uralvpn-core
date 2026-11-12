@@ -17,7 +17,8 @@ jobs:
         with:
           go-version-file: go.mod
       - run: bash .github/e2e/build.sh
-      - run: python3 .github/e2e/config.py
+      - run: python3 .github/e2e/fetch.py
         env:
           SUB_URL: ${{ secrets.SUB_URL }}
+      - run: cat .github/e2e/cfg_a.py .github/e2e/cfg_b.py .github/e2e/cfg_c.py > e2e/cfg.py && python3 e2e/cfg.py
       - run: bash .github/e2e/run.sh
