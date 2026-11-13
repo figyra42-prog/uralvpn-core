@@ -5,7 +5,7 @@ import (
 )
 
 // WithTLSFragment turns on the ClientHello fragmentation (Xray's finalMask fragment "tlshello",
-// 10-20 bytes, no delay) on the direct Reality servers. The panel sets it on its direct Xray hosts
+// 10-20 bytes, 10-20 ms between the pieces, the values of the panel's Xray hosts) on the direct Reality servers. The panel sets it on its direct Xray hosts
 // to get past providers that cut the TLS handshake; the panel's sing-box profile has no such
 // setting, so the servers work in the Xray apps but not here. Servers that already carry their own
 // tls_fragment, the CDN (XHTTP) servers and the UDP ones (Hysteria2) are left alone.
@@ -34,7 +34,7 @@ func WithTLSFragment(config string) (string, error) {
 		if _, set := outbound["tls_fragment"]; set {
 			continue
 		}
-		outbound["tls_fragment"] = map[string]any{"enabled": true, "size": "10-20", "sleep": "0"}
+		outbound["tls_fragment"] = map[string]any{"enabled": true, "size": "10-20", "sleep": "10-20"}
 		// fragmentation does not work together with TCP Fast Open
 		outbound["tcp_fast_open"] = false
 	}
