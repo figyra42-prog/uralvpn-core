@@ -13,6 +13,10 @@ func UralvpnMergeSubscription(singboxConfig string, xrayConfig string) (string, 
 	if withDirect, err := uralvpn.WithDirectRules(merged, xrayConfig); err == nil {
 		merged = withDirect
 	}
+	// The direct servers get the same ClientHello fragmentation as in the panel's Xray hosts
+	if withFragment, err := uralvpn.WithTLSFragment(merged); err == nil {
+		merged = withFragment
+	}
 	if withKeyShare, err := uralvpn.WithRealityKeyShare(merged); err == nil {
 		return withKeyShare, nil
 	}
