@@ -222,20 +222,26 @@ func convertXHTTP(outbound map[string]any) (map[string]any, bool) {
 			extra[k] = v
 		}
 	}
+	// Xray reads these names without regard to case (the panel writes SessionIDKey, SessionIDPlacement),
+	// so they are looked up in lower case.
+	extraLower := make(map[string]any, len(extra))
+	for k, v := range extra {
+		extraLower[strings.ToLower(k)] = v
+	}
 	transport := map[string]any{"type": "xhttp", "mode": orDefault(text(xhttp["mode"]), "auto"), "path": orDefault(text(xhttp["path"]), "/")}
 	if host := text(xhttp["host"]); host != "" {
 		transport["host"] = host
 	}
 	for xrayKey, singKey := range xhttpKeys {
-		if v, loaded := extra[xrayKey]; loaded {
+		if v, loaded := extraLower[strings.ToLower(xrayKey)]; loaded {
 			transport[singKey] = valueRange(v)
 		}
 	}
-	if v, loaded := extra["uplinkChunkSize"]; loaded {
+	if v, loaded := extraLower["uplinkchunksize"]; loaded {
 		transport["uplink_chunk_size"] = firstInteger(v)
 	}
 	headers := map[string]any{}
-	for k, v := range object(extra["headers"]) {
+	for k, v := range object(extraLower["headers"]) {
 		if strings.ToLower(k) != "host" {
 			headers[k] = v
 		}
@@ -244,10 +250,10 @@ func convertXHTTP(outbound map[string]any) (map[string]any, bool) {
 		transport["headers"] = headers
 	}
 	xmux := map[string]any{}
-	for k, v := range object(extra["xmux"]) {
-		if k == "hKeepAlivePeriod" {
+	for k, v := range object(extraLower["xmux"]) {
+		if strings.EqualFold(k, "hKeepAlivePeriod") {
 			xmux["h_keep_alive_period"] = firstInteger(v)
-		} else if singKey, loaded := xmuxKeys[k]; loaded {
+		} else if singKey, loaded := xmuxKeys[strings.ToLower(k)]; loaded {
 			xmux[singKey] = valueRange(v)
 		}
 	}
@@ -270,6 +276,8 @@ var xhttpKeys = map[string]string{
 	"scMinPostsIntervalMs": "sc_min_posts_interval_ms",
 	"sessionPlacement":     "session_placement",
 	"sessionKey":           "session_key",
+	"sessionIDPlacement":   "session_placement",
+	"sessionIDKey":         "session_key",
 	"seqPlacement":         "seq_placement",
 	"seqKey":               "seq_key",
 	"uplinkHTTPMethod":     "uplink_http_method",
@@ -277,12 +285,13 @@ var xhttpKeys = map[string]string{
 	"uplinkDataKey":        "uplink_data_key",
 }
 
+// the keys are lower case: they are compared with the lower-cased Xray names
 var xmuxKeys = map[string]string{
-	"maxConcurrency":   "max_concurrency",
-	"maxConnections":   "max_connections",
-	"cMaxReuseTimes":   "c_max_reuse_times",
-	"hMaxRequestTimes": "h_max_request_times",
-	"hMaxReusableSecs": "h_max_reusable_secs",
+	"maxconcurrency":   "max_concurrency",
+	"maxconnections":   "max_connections",
+	"cmaxreusetimes":   "c_max_reuse_times",
+	"hmaxrequesttimes": "h_max_request_times",
+	"hmaxreusablesecs": "h_max_reusable_secs",
 }
 
 func object(v any) map[string]any {
