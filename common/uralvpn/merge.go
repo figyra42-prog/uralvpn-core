@@ -278,6 +278,8 @@ var xhttpKeys = map[string]string{
 	"sessionKey":           "session_key",
 	"sessionIDPlacement":   "session_placement",
 	"sessionIDKey":         "session_key",
+	"sessionIDLength":      "session_id_length",
+	"sessionIDTable":       "session_id_table",
 	"seqPlacement":         "seq_placement",
 	"seqKey":               "seq_key",
 	"uplinkHTTPMethod":     "uplink_http_method",
