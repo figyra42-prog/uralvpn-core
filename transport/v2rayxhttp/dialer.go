@@ -129,6 +129,7 @@ func (c *DefaultDialerClient) OpenStream(ctx context.Context, url string, sessio
 
 func (c *DefaultDialerClient) PostPacket(ctx context.Context, url string, sessionId string, seqStr string, body io.Reader, contentLength int64) error {
 	var encodedData string
+	var bodyBytes []byte //H: body-placement payload, kept so GetBody can replay it
 	dataPlacement := c.options.GetNormalizedUplinkDataPlacement()
 	if dataPlacement != option.PlacementBody {
 		data, err := io.ReadAll(body)
@@ -138,6 +139,16 @@ func (c *DefaultDialerClient) PostPacket(ctx context.Context, url string, sessio
 		encodedData = base64.RawURLEncoding.EncodeToString(data)
 		body = nil
 		contentLength = 0
+	} else {
+		//H: read the upload into bytes and hand it over as a re-readable reader.
+		//H: a raw reader here breaks HTTP/2 GET-with-body (no GetBody for retries).
+		data, err := io.ReadAll(body)
+		if err != nil {
+			return err
+		}
+		bodyBytes = data
+		body = bytes.NewReader(data)
+		contentLength = int64(len(data))
 	}
 	method := c.options.GetNormalizedUplinkHTTPMethod()
 	req, err := http.NewRequestWithContext(context.WithoutCancel(ctx), method, url, body)
@@ -145,6 +156,12 @@ func (c *DefaultDialerClient) PostPacket(ctx context.Context, url string, sessio
 		return err
 	}
 	req.ContentLength = contentLength
+	if bodyBytes != nil {
+		//H: Go cannot derive GetBody from a generic reader; set it explicitly.
+		req.GetBody = func() (io.ReadCloser, error) {
+			return io.NopCloser(bytes.NewReader(bodyBytes)), nil
+		}
+	}
 	req.Header = c.options.GetRequestHeader()
 	if dataPlacement != option.PlacementBody {
 		key := c.options.UplinkDataKey
