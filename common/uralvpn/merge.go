@@ -47,8 +47,14 @@ func Merge(singboxConfig string, xrayConfig string) (string, error) {
 		xrayConfigs = []map[string]any{single}
 	}
 
+	// UralVPN: the panel lists its autopilot members itself (the Xray config with balancers):
+	// the direct servers under "auto*" and the CDN servers under "cdn*"/"fb". Follow those lists
+	// instead of taking every server of the profile: a location without the DIRECT tag stays a
+	// manual one, and a CDN host without the CDN tag stays out of the CDN group.
+	autoServers, cdnServers := panelAutopilotMembers(xrayConfigs)
+
 	used := map[string]bool{}
-	var directTags []string
+	var directTags, manualTags []string
 	var proxies, others []any
 	for _, item := range list(config["outbounds"]) {
 		outbound := object(item)
@@ -72,6 +78,10 @@ func Merge(singboxConfig string, xrayConfig string) (string, error) {
 		tag = unique(used, tag)
 		outbound["tag"] = tag
 		proxies = append(proxies, outbound)
+		if len(autoServers) > 0 && !autoServers[text(outbound["server"])] {
+			manualTags = append(manualTags, tag)
+			continue
+		}
 		directTags = append(directTags, tag)
 	}
 	if len(directTags) == 0 {
@@ -86,7 +96,8 @@ func Merge(singboxConfig string, xrayConfig string) (string, error) {
 		}
 		name := strings.TrimSpace(text(xray["remarks"]))
 		for _, item := range list(xray["outbounds"]) {
-			outbound, ok := convertXHTTP(object(item))
+			raw := object(item)
+			outbound, ok := convertXHTTP(raw)
 			if !ok {
 				continue
 			}
@@ -96,14 +107,21 @@ func Merge(singboxConfig string, xrayConfig string) (string, error) {
 			tag := unique(used, name)
 			outbound["tag"] = tag
 			proxies = append(proxies, outbound)
+			if len(cdnServers) > 0 && !cdnServers[cdnMemberKey(raw)] {
+				manualTags = append(manualTags, tag)
+				break
+			}
 			cdnTags = append(cdnTags, tag)
 			break
 		}
 	}
 
 	autoMembers := []string{TagDirect}
+	selectorMembers := append([]string{TagAuto}, directTags...)
+	selectorMembers = append(selectorMembers, cdnTags...)
+	selectorMembers = append(selectorMembers, manualTags...)
 	groups := []any{
-		map[string]any{"type": "selector", "tag": TagSelector, "outbounds": append(append([]string{TagAuto}, directTags...), cdnTags...), "default": TagAuto, "interrupt_exist_connections": true},
+		map[string]any{"type": "selector", "tag": TagSelector, "outbounds": selectorMembers, "default": TagAuto, "interrupt_exist_connections": true},
 		nil,
 		urlTest(TagDirect, directTags),
 	}
@@ -147,6 +165,69 @@ func unique(used map[string]bool, tag string) string {
 	}
 	used[result] = true
 	return result
+}
+
+// panelAutopilotMembers reads the panel's own autopilot config (the Xray one with balancers):
+// "auto*" outbounds are the direct servers, "cdn*" and "fb" are the CDN ones.
+func panelAutopilotMembers(configs []map[string]any) (direct map[string]bool, cdn map[string]bool) {
+	for _, cfg := range configs {
+		if len(list(object(cfg["routing"])["balancers"])) == 0 {
+			continue
+		}
+		direct, cdn = map[string]bool{}, map[string]bool{}
+		for _, item := range list(cfg["outbounds"]) {
+			outbound := object(item)
+			if outbound == nil {
+				continue
+			}
+			tag := text(outbound["tag"])
+			switch {
+			case strings.HasPrefix(tag, "auto"):
+				if address := xrayAddress(outbound); address != "" {
+					direct[address] = true
+				}
+			case strings.HasPrefix(tag, "cdn") || strings.HasPrefix(tag, "fb"):
+				if key := cdnMemberKey(outbound); key != "" {
+					cdn[key] = true
+				}
+			}
+		}
+		return direct, cdn
+	}
+	return nil, nil
+}
+
+func xrayAddress(outbound map[string]any) string {
+	settings := object(outbound["settings"])
+	for _, item := range list(settings["vnext"]) {
+		if address := text(object(item)["address"]); address != "" {
+			return address
+		}
+	}
+	if address := text(settings["address"]); address != "" {
+		return address
+	}
+	for _, item := range list(settings["servers"]) {
+		if address := text(object(item)["address"]); address != "" {
+			return address
+		}
+	}
+	return ""
+}
+
+// cdnMemberKey tells CDN locations apart: one front address can carry several locations,
+// so the path and the SNI are part of the key.
+func cdnMemberKey(outbound map[string]any) string {
+	address := xrayAddress(outbound)
+	if address == "" {
+		return ""
+	}
+	stream := object(outbound["streamSettings"])
+	path := text(object(stream["xhttpSettings"])["path"])
+	if path == "" {
+		path = text(object(stream["splithttpSettings"])["path"])
+	}
+	return address + "|" + path + "|" + text(object(stream["tlsSettings"])["serverName"])
 }
 
 // convertXHTTP converts an Xray VLESS XHTTP outbound to a sing-box one.
