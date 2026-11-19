@@ -94,3 +94,47 @@ func TestH_MergeAutopilotFollowsPanelLists(t *testing.T) {
 		}
 	}
 }
+
+// Xray 26 renamed the XMUX options and added noSSEHeader; the panel sends these names in its
+// Xray JSON subscription, so the converter must carry them into the sing-box names.
+func TestH_ConvertXHTTPXray26Names(t *testing.T) {
+	raw := `{
+ "tag": "cdn-1", "protocol": "vless",
+ "settings": {"vnext": [{"address": "fin.example.com", "port": 443, "users": [{"id": "5db6db0f-54d4-47b0-9360-4d84088e94d2", "encryption": "none"}]}]},
+ "streamSettings": {
+  "network": "xhttp",
+  "xhttpSettings": {
+   "mode": "packet-up", "path": "/api/v2/sync/stream/index.json",
+   "extra": {
+    "noSSEHeader": true, "enableXmux": true,
+    "xmux": {"maxReuseTimes": 1, "maxRequestTimes": "0", "maxReusableSecs": "0", "maxConcurrency": "1"},
+    "xPaddingKey": "_token", "xPaddingMethod": "repeat-x", "xPaddingBytes": "100-1000",
+    "sessionIDKey": "session", "seqKey": "part", "scMaxEachPostBytes": "262144",
+    "uplinkDataPlacement": "body", "uplinkHTTPMethod": "GET"
+   }
+  },
+  "tlsSettings": {"serverName": "fin.example.com", "alpn": ["h2"]}
+ }
+}`
+	var outbound map[string]any
+	if err := json.Unmarshal([]byte(raw), &outbound); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	got, ok := convertXHTTP(outbound)
+	if !ok {
+		t.Fatal("convertXHTTP: outbound skipped")
+	}
+	transport, _ := got["transport"].(map[string]any)
+	if transport["no_sse_header"] != true {
+		t.Fatalf("no_sse_header not passed: %#v", transport["no_sse_header"])
+	}
+	if transport["x_padding_key"] != "_token" || transport["x_padding_method"] != "repeat-x" {
+		t.Fatalf("padding lost: %#v %#v", transport["x_padding_key"], transport["x_padding_method"])
+	}
+	xmux, _ := transport["xmux"].(map[string]any)
+	for _, key := range []string{"c_max_reuse_times", "h_max_request_times", "h_max_reusable_secs"} {
+		if _, loaded := xmux[key]; !loaded {
+			t.Fatalf("xmux %s not passed: %#v", key, xmux)
+		}
+	}
+}

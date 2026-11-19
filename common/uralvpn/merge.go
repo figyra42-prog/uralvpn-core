@@ -353,6 +353,7 @@ var xhttpKeys = map[string]string{
 	"xPaddingHeader":       "x_padding_header",
 	"xPaddingMethod":       "x_padding_method",
 	"noGRPCHeader":         "no_grpc_header",
+	"noSSEHeader":          "no_sse_header",
 	"scMaxEachPostBytes":   "sc_max_each_post_bytes",
 	"scMinPostsIntervalMs": "sc_min_posts_interval_ms",
 	"sessionPlacement":     "session_placement",
@@ -375,6 +376,10 @@ var xmuxKeys = map[string]string{
 	"cmaxreusetimes":   "c_max_reuse_times",
 	"hmaxrequesttimes": "h_max_request_times",
 	"hmaxreusablesecs": "h_max_reusable_secs",
+	// Xray 26 names for the same options
+	"maxreusetimes":   "c_max_reuse_times",
+	"maxrequesttimes": "h_max_request_times",
+	"maxreusablesecs": "h_max_reusable_secs",
 }
 
 func object(v any) map[string]any {
