@@ -30,6 +30,10 @@ const (
 	testURL          = "https://www.gstatic.com/generate_204"
 	testInterval     = "1m"
 	blacklistTimeout = "30s"
+	// The panel's profile leaves the monitor's own limit at the 5 s default, which is too tight on a
+	// busy mobile network: a working server then shows as "no data". The group tests use their own
+	// limit (see the app's urltest patch), this one covers the monitor.
+	pingTestTimeout = "10s"
 )
 
 // Merge returns the sing-box config made from the panel's sing-box profile and Xray subscription.
@@ -133,6 +137,7 @@ func Merge(singboxConfig string, xrayConfig string) (string, error) {
 
 	outbounds := append(append(groups, proxies...), others...)
 	config["outbounds"] = outbounds
+	setPingTestTimeout(config)
 	route := object(config["route"])
 	if route == nil {
 		route = map[string]any{}
@@ -145,6 +150,24 @@ func Merge(singboxConfig string, xrayConfig string) (string, error) {
 		return "", err
 	}
 	return string(content), nil
+}
+
+// setPingTestTimeout keeps the monitor's test limit off the 5 s default; a value the profile sets
+// itself wins.
+func setPingTestTimeout(config map[string]any) {
+	experimental := object(config["experimental"])
+	if experimental == nil {
+		experimental = map[string]any{}
+		config["experimental"] = experimental
+	}
+	monitoring := object(experimental["monitoring"])
+	if monitoring == nil {
+		monitoring = map[string]any{}
+		experimental["monitoring"] = monitoring
+	}
+	if _, loaded := monitoring["url_test_timeout"]; !loaded {
+		monitoring["url_test_timeout"] = pingTestTimeout
+	}
 }
 
 func urlTest(tag string, members []string) map[string]any {

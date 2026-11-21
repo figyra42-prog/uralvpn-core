@@ -95,6 +95,46 @@ func TestH_MergeAutopilotFollowsPanelLists(t *testing.T) {
 	}
 }
 
+// A slow mobile network must not turn a working server into "no data": the monitor's own test
+// limit is raised off the 5 s default, and a value the profile sets itself is left alone.
+func TestH_MergePingTestTimeout(t *testing.T) {
+	singbox := `{"outbounds": [
+  {"type": "selector", "tag": "→ Remnawave", "outbounds": ["🇱🇻 Латвия"]},
+  {"type": "direct", "tag": "direct"},
+  {"type": "vless", "tag": "🇱🇻 Латвия", "server": "lv.example.com", "server_port": 443, "uuid": "u"}
+]}`
+	merged, err := Merge(singbox, `[]`)
+	if err != nil {
+		t.Fatalf("Merge: %v", err)
+	}
+	var cfg map[string]any
+	if err := json.Unmarshal([]byte(merged), &cfg); err != nil {
+		t.Fatalf("merge output is not JSON: %v", err)
+	}
+	monitoring, _ := cfg["experimental"].(map[string]any)["monitoring"].(map[string]any)
+	if got := monitoring["url_test_timeout"]; got != pingTestTimeout {
+		t.Fatalf("url_test_timeout = %v, want %s", got, pingTestTimeout)
+	}
+
+	own := `{"experimental": {"monitoring": {"url_test_timeout": "3s"}}, "outbounds": [
+  {"type": "selector", "tag": "→ Remnawave", "outbounds": ["🇱🇻 Латвия"]},
+  {"type": "direct", "tag": "direct"},
+  {"type": "vless", "tag": "🇱🇻 Латвия", "server": "lv.example.com", "server_port": 443, "uuid": "u"}
+]}`
+	merged, err = Merge(own, `[]`)
+	if err != nil {
+		t.Fatalf("Merge: %v", err)
+	}
+	cfg = nil
+	if err := json.Unmarshal([]byte(merged), &cfg); err != nil {
+		t.Fatalf("merge output is not JSON: %v", err)
+	}
+	monitoring, _ = cfg["experimental"].(map[string]any)["monitoring"].(map[string]any)
+	if got := monitoring["url_test_timeout"]; got != "3s" {
+		t.Fatalf("the profile's own url_test_timeout was overwritten: %v", got)
+	}
+}
+
 // Xray 26 renamed the XMUX options and added noSSEHeader; the panel sends these names in its
 // Xray JSON subscription, so the converter must carry them into the sing-box names.
 func TestH_ConvertXHTTPXray26Names(t *testing.T) {
