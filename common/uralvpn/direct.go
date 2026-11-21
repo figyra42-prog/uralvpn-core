@@ -8,11 +8,6 @@ import (
 
 var suffixRegexp = regexp.MustCompile(`^\\\.([A-Za-z0-9.\-]+|[^\x00-\x7f]+)\$$`)
 
-// The running service refreshes the subscription: sent through the tunnel, a dead location leaves
-// no way to update the profile at all (the device stays on a stale list of servers). It always
-// goes direct, like the panel itself.
-const subscriptionDomain = "skiff.starik.website"
-
 // directRules turns the panel's Xray routing ("direct" for Russian addresses and domains) into
 // sing-box route rules, so that Russian sites do not go through the VPN, like in the Xray apps.
 // It returns nil when the Xray config has no such rules.
@@ -121,7 +116,9 @@ func WithDirectRules(merged string, xrayConfig string) (string, error) {
 		}
 	}
 	rules := directRules(xrayConfigs, directTag)
-	rules = append([]any{map[string]any{"domain": []string{subscriptionDomain}, "outbound": directTag}}, rules...)
+	if len(rules) == 0 {
+		return merged, nil
+	}
 	route := object(config["route"])
 	if route == nil {
 		route = map[string]any{}

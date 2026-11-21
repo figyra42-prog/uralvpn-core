@@ -178,30 +178,3 @@ func TestH_ConvertXHTTPXray26Names(t *testing.T) {
 		}
 	}
 }
-
-// The subscription is refreshed by the running service: through a dead tunnel the profile could
-// never be updated, so its domain always goes direct.
-func TestH_WithDirectRulesSubscriptionGoesDirect(t *testing.T) {
-	singbox := `{"outbounds": [
-  {"type": "direct", "tag": "direct"},
-  {"type": "vless", "tag": "🇱🇻 Латвия", "server": "lv.example.com", "server_port": 443, "uuid": "u"},
-  {"type": "selector", "tag": "🌐 Локации", "outbounds": ["🇱🇻 Латвия"]}
- ], "route": {"final": "🌐 Локации"}}`
-	out, err := WithDirectRules(singbox, `[]`)
-	if err != nil {
-		t.Fatalf("WithDirectRules: %v", err)
-	}
-	var cfg map[string]any
-	if err := json.Unmarshal([]byte(out), &cfg); err != nil {
-		t.Fatalf("output is not JSON: %v", err)
-	}
-	rules, _ := cfg["route"].(map[string]any)["rules"].([]any)
-	if len(rules) == 0 {
-		t.Fatal("no route rules")
-	}
-	first, _ := rules[0].(map[string]any)
-	domain, _ := first["domain"].([]any)
-	if len(domain) != 1 || domain[0] != subscriptionDomain || first["outbound"] != "direct" {
-		t.Fatalf("the subscription does not go direct first: %v", first)
-	}
-}
