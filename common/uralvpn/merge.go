@@ -149,6 +149,14 @@ func Merge(singboxConfig string, xrayConfig string) (string, error) {
 		config["route"] = route
 	}
 	route["final"] = TagSelector
+	// QUIC through the tunnel stalls the first page load: a browser waits for the HTTP/3 timeout and
+	// only then falls back to TCP. Rejecting UDP/443 here makes it take TCP at once; the direct
+	// (Russian) traffic keeps its QUIC, because those rules are checked earlier.
+	route["rules"] = append(list(route["rules"]), map[string]any{
+		"action":  "reject",
+		"network": []string{"udp"},
+		"port":    []int{443},
+	})
 
 	content, err := json.Marshal(config)
 	if err != nil {

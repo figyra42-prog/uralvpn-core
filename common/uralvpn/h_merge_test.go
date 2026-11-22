@@ -220,3 +220,32 @@ func TestH_MergeConnectTimeout(t *testing.T) {
 		}
 	}
 }
+
+// QUIC through the tunnel costs a 2-3 s timeout on the first page load: UDP/443 is rejected for the
+// tunnelled traffic, after the direct rules (the Russian traffic keeps its QUIC).
+func TestH_MergeRejectsTunnelQUIC(t *testing.T) {
+	singbox := `{"outbounds": [
+  {"type": "selector", "tag": "→ Remnawave", "outbounds": ["🇱🇻 Латвия"]},
+  {"type": "direct", "tag": "direct"},
+  {"type": "vless", "tag": "🇱🇻 Латвия", "server": "lv.example.com", "server_port": 443, "uuid": "u"}
+], "route": {"rules": [{"action": "sniff"}]}}`
+	merged, err := Merge(singbox, `[]`)
+	if err != nil {
+		t.Fatalf("Merge: %v", err)
+	}
+	var cfg map[string]any
+	if err := json.Unmarshal([]byte(merged), &cfg); err != nil {
+		t.Fatalf("merge output is not JSON: %v", err)
+	}
+	rules := cfg["route"].(map[string]any)["rules"].([]any)
+	last := rules[len(rules)-1].(map[string]any)
+	if last["action"] != "reject" {
+		t.Fatalf("the last rule must reject QUIC: %v", last)
+	}
+	if net, _ := last["network"].([]any); len(net) != 1 || net[0] != "udp" {
+		t.Fatalf("QUIC block is not limited to UDP: %v", last["network"])
+	}
+	if port, _ := last["port"].([]any); len(port) != 1 || port[0].(float64) != 443 {
+		t.Fatalf("QUIC block is not limited to 443: %v", last["port"])
+	}
+}
