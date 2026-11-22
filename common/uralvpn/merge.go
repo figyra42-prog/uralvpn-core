@@ -27,7 +27,10 @@ const (
 	TagDirect   = "🚀 Прямые"
 	TagCDN      = "☁️ CDN"
 
-	testURL          = "https://www.gstatic.com/generate_204"
+	// The test is plain HTTP, like the panel's own template: over HTTPS every check pays a full
+	// TLS handshake to the target through the tunnel, and a loaded direct server then misses the
+	// limit and shows "no data" although it works.
+	testURL          = "http://www.gstatic.com/generate_204"
 	testInterval     = "20s"
 	blacklistTimeout = "30s"
 	// The panel's profile leaves the monitor's own limit at the 5 s default, which is too tight on a
@@ -172,6 +175,9 @@ func setPingTestTimeout(config map[string]any) {
 	}
 	if _, loaded := monitoring["url_test_timeout"]; !loaded {
 		monitoring["url_test_timeout"] = pingTestTimeout
+	}
+	if _, loaded := monitoring["urls"]; !loaded {
+		monitoring["urls"] = []any{testURL}
 	}
 }
 
