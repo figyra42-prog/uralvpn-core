@@ -88,7 +88,6 @@ func Merge(singboxConfig string, xrayConfig string) (string, error) {
 		tag = unique(used, tag)
 		outbound["tag"] = tag
 		setConnectTimeout(outbound)
-		setTLSFragment(outbound)
 		proxies = append(proxies, outbound)
 		if len(autoServers) > 0 && !autoServers[text(outbound["server"])] {
 			manualTags = append(manualTags, tag)
@@ -187,28 +186,6 @@ func setPingTestTimeout(config map[string]any) {
 func setConnectTimeout(outbound map[string]any) {
 	if _, loaded := outbound["connect_timeout"]; !loaded {
 		outbound["connect_timeout"] = connectTimeout
-	}
-}
-
-// setTLSFragment slices the first TLS packet like the mask the panel sets for its own clients:
-// several DPI setups drop or throttle a whole ClientHello to some server names, and a sliced one
-// passes (the same 10-20 bytes with 10-20 ms between the pieces).
-func setTLSFragment(outbound map[string]any) {
-	if _, loaded := outbound["tls_fragment"]; loaded {
-		return
-	}
-	if text(outbound["type"]) != "vless" {
-		return
-	}
-	tls := object(outbound["tls"])
-	if tls == nil || text(tls["server_name"]) == "" {
-		return
-	}
-	outbound["tls_fragment"] = map[string]any{
-		"enabled": true,
-		"size":    "10-20",
-		"sleep":   "10-20",
-		"method":  "tlsHello",
 	}
 }
 
