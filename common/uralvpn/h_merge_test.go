@@ -178,3 +178,45 @@ func TestH_ConvertXHTTPXray26Names(t *testing.T) {
 		}
 	}
 }
+
+// A hanging server must fail in a few seconds: the autopilot's failover then tries the next one
+// inside the same connection instead of stalling until the system timeout.
+func TestH_MergeConnectTimeout(t *testing.T) {
+	singbox := `{"outbounds": [
+  {"type": "selector", "tag": "→ Remnawave", "outbounds": ["🇱🇻 Латвия"]},
+  {"type": "direct", "tag": "direct"},
+  {"type": "vless", "tag": "🇱🇻 Латвия", "server": "lv.example.com", "server_port": 443, "uuid": "u"},
+  {"type": "vless", "tag": "🇩🇪 Германия", "server": "de.example.com", "server_port": 443, "uuid": "u", "connect_timeout": "9s"}
+]}`
+	merged, err := Merge(singbox, `[]`)
+	if err != nil {
+		t.Fatalf("Merge: %v", err)
+	}
+	var cfg map[string]any
+	if err := json.Unmarshal([]byte(merged), &cfg); err != nil {
+		t.Fatalf("merge output is not JSON: %v", err)
+	}
+	timeouts := map[string]any{}
+	intervals := map[string]any{}
+	for _, item := range cfg["outbounds"].([]any) {
+		outbound, _ := item.(map[string]any)
+		tag, _ := outbound["tag"].(string)
+		switch outbound["type"] {
+		case "vless":
+			timeouts[tag] = outbound["connect_timeout"]
+		case "urltest":
+			intervals[tag] = outbound["interval"]
+		}
+	}
+	if timeouts["🇱🇻 Латвия"] != connectTimeout {
+		t.Fatalf("connect_timeout was not set: %v", timeouts["🇱🇻 Латвия"])
+	}
+	if timeouts["🇩🇪 Германия"] != "9s" {
+		t.Fatalf("the panel's own connect_timeout was overwritten: %v", timeouts["🇩🇪 Германия"])
+	}
+	for tag, interval := range intervals {
+		if interval != testInterval {
+			t.Fatalf("urltest %s interval = %v, want %s", tag, interval, testInterval)
+		}
+	}
+}

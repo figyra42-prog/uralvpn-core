@@ -28,12 +28,15 @@ const (
 	TagCDN      = "☁️ CDN"
 
 	testURL          = "https://www.gstatic.com/generate_204"
-	testInterval     = "1m"
+	testInterval     = "20s"
 	blacklistTimeout = "30s"
 	// The panel's profile leaves the monitor's own limit at the 5 s default, which is too tight on a
 	// busy mobile network: a working server then shows as "no data". The group tests use their own
 	// limit (see the app's urltest patch), this one covers the monitor.
 	pingTestTimeout = "10s"
+	// A server that hangs must fail fast: the autopilot then moves to the next one in the same
+	// connection attempt instead of keeping it stuck until the system timeout.
+	connectTimeout = "5s"
 )
 
 // Merge returns the sing-box config made from the panel's sing-box profile and Xray subscription.
@@ -81,6 +84,7 @@ func Merge(singboxConfig string, xrayConfig string) (string, error) {
 		}
 		tag = unique(used, tag)
 		outbound["tag"] = tag
+		setConnectTimeout(outbound)
 		proxies = append(proxies, outbound)
 		if len(autoServers) > 0 && !autoServers[text(outbound["server"])] {
 			manualTags = append(manualTags, tag)
@@ -110,6 +114,7 @@ func Merge(singboxConfig string, xrayConfig string) (string, error) {
 			}
 			tag := unique(used, name)
 			outbound["tag"] = tag
+			setConnectTimeout(outbound)
 			proxies = append(proxies, outbound)
 			if len(cdnServers) > 0 && !cdnServers[cdnMemberKey(raw)] {
 				manualTags = append(manualTags, tag)
@@ -167,6 +172,14 @@ func setPingTestTimeout(config map[string]any) {
 	}
 	if _, loaded := monitoring["url_test_timeout"]; !loaded {
 		monitoring["url_test_timeout"] = pingTestTimeout
+	}
+}
+
+// setConnectTimeout makes a hanging server fail in a few seconds, so the autopilot's failover has
+// time to try the next one inside the same connection. A value the panel sets itself wins.
+func setConnectTimeout(outbound map[string]any) {
+	if _, loaded := outbound["connect_timeout"]; !loaded {
+		outbound["connect_timeout"] = connectTimeout
 	}
 }
 
