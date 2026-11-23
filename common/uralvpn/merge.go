@@ -39,7 +39,7 @@ const (
 	pingTestTimeout = "10s"
 	// A server that hangs must fail fast: the autopilot then moves to the next one in the same
 	// connection attempt instead of keeping it stuck until the system timeout.
-	connectTimeout = "5s"
+	connectTimeout = "10s"
 )
 
 // Merge returns the sing-box config made from the panel's sing-box profile and Xray subscription.
